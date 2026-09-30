@@ -100,7 +100,6 @@ export default function Home() {
         fontSize:"55px",
         marginTop:"-30px"
       }}>
-        🏔️　🌲　🌲　🦌　🌲　🌲　🏔️
       </div>
 
       <section style={{
