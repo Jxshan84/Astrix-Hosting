@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
 export default function Home() {
+  const [showHosting, setShowHosting] = useState(false);
+
   return (
     <main style={{
       minHeight: "100vh",
@@ -50,14 +55,15 @@ export default function Home() {
             Deploy your server and let Astrix handle the rest.
           </p>
 
-          <button style={{
-            marginTop:"20px",
-            padding:"15px 24px",
-            border:0,
-            borderRadius:"10px",
-            background:"#a8eabb",
-            fontWeight:"bold"
-          }}>
+          <button onClick={() => setShowHosting(true)} style={{
+        marginTop:"20px",
+        padding:"15px 24px",
+        border:0,
+        borderRadius:"10px",
+        background:"#a8eabb",
+        fontWeight:"bold",
+        cursor:"pointer"
+      }}>
             Start Hosting →
           </button>
         </div>
@@ -146,6 +152,92 @@ export default function Home() {
         <b>ASTRIX HOSTING</b>
         <span style={{float:"right"}}>© 2026 Astrix Hosting</span>
       </footer>
+
+      {showHosting && (
+        <div style={{
+          position:"fixed",
+          inset:0,
+          background:"rgba(0,0,0,0.72)",
+          display:"flex",
+          alignItems:"center",
+          justifyContent:"center",
+          padding:"20px",
+          zIndex:1000
+        }}>
+          <div style={{
+            width:"100%",
+            maxWidth:"430px",
+            background:"#101820",
+            border:"1px solid rgba(255,255,255,0.15)",
+            borderRadius:"20px",
+            padding:"28px",
+            textAlign:"center",
+            boxShadow:"0 20px 80px rgba(0,0,0,0.5)"
+          }}>
+            <h2 style={{fontSize:"28px", marginBottom:"10px"}}>
+              Free Hosting
+            </h2>
+
+            <p style={{
+              color:"#b8c3cc",
+              lineHeight:1.6,
+              marginBottom:"22px"
+            }}>
+              Join the Astrix Hosting Discord server and use
+              <b style={{color:"#fff"}}> zy!server create</b>
+              to start your free hosting deployment.
+            </p>
+
+            <a
+              href="https://discord.gg/3B5PF9SC8j"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display:"block",
+                padding:"13px",
+                borderRadius:"12px",
+                background:"#5865F2",
+                color:"#fff",
+                textDecoration:"none",
+                fontWeight:"bold",
+                marginBottom:"12px"
+              }}
+            >
+              Join Discord
+            </a>
+
+            <button
+              onClick={() => setShowHosting(false)}
+              style={{
+                width:"100%",
+                padding:"13px",
+                borderRadius:"12px",
+                border:"1px solid rgba(255,255,255,0.18)",
+                background:"#18232d",
+                color:"#fff",
+                fontWeight:"bold",
+                cursor:"pointer"
+              }}
+            >
+              I've Joined — Continue
+            </button>
+
+            <button
+              onClick={() => setShowHosting(false)}
+              style={{
+                marginTop:"14px",
+                background:"transparent",
+                border:0,
+                color:"#8f9aa5",
+                cursor:"pointer"
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
