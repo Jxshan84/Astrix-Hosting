@@ -2,7 +2,7 @@ export default function Home() {
   return (
     <main style={{
       minHeight: "100vh",
-      background: "linear-gradient(180deg,#06130d,#0b2b1d,#030806)",
+      background: "linear-gradient(rgba(3,12,8,.62),rgba(3,12,8,.88)), url(\"https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85\")",
       color: "white",
       padding: "30px",
       fontFamily: "Arial, sans-serif"
