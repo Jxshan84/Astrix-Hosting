@@ -7,6 +7,7 @@ export default function Home() {
       padding: "30px",
       fontFamily: "Arial, sans-serif"
     }}>
+      <div className="wildlife-scene" />
       <nav style={{
         display: "flex",
         justifyContent: "space-between",

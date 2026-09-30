@@ -24,3 +24,6 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+.wildlife-scene{position:fixed;inset:0;z-index:0;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.34;filter:saturate(.78) brightness(.62);animation:wildlifeScenes 24s infinite}main{position:relative;z-index:1;background:transparent!important}@keyframes wildlifeScenes{0%,20%{background-image:url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85")}25%,45%{background-image:url("https://images.unsplash.com/photo-1752087021432-2524e33d07a7?auto=format&fit=crop&w=2400&q=85")}50%,70%{background-image:url("https://images.unsplash.com/photo-1649012056772-1969e9e82003?auto=format&fit=crop&w=2400&q=85")}75%,95%{background-image:url("https://images.unsplash.com/photo-1525869916826-972885c91c1e?auto=format&fit=crop&w=2400&q=85")}100%{background-image:url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85")}}
