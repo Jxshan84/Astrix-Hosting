@@ -21,7 +21,7 @@ export default function Home() {
         borderBottom: "1px solid #ffffff20"
       }}>
         <h2>🌿 ASTRIX <small>HOSTING</small></h2>
-        <div>Servers　 Features　 Plans　 <button>Login</button></div>
+        <div>Servers　 Features　 Plans　 <a href="/login">Login</a></div>
       </nav>
 
       <section style={{
@@ -55,7 +55,7 @@ export default function Home() {
             Deploy your server and let Astrix handle the rest.
           </p>
 
-          <button onClick={() => setShowHosting(true)} style={{
+          <button onClick={() => window.location.href="/login"} style={{
         marginTop:"20px",
         padding:"15px 24px",
         border:0,
@@ -68,38 +68,6 @@ export default function Home() {
           </button>
         </div>
 
-        <div style={{
-          width:"330px",
-          padding:"25px",
-          borderRadius:"20px",
-          background:"#071810dd",
-          border:"1px solid #ffffff20",
-          boxShadow:"0 20px 70px #000"
-        }}>
-          <small style={{color:"#71877b"}}>MY SERVER</small>
-          <h2>Astrix Bot #01</h2>
-          <p style={{color:"#91e5a5"}}>● ONLINE</p>
-
-          <div style={{marginTop:"30px"}}>
-            <p>CPU <b style={{float:"right"}}>12%</b></p>
-            <hr />
-            <p>RAM <b style={{float:"right"}}>256 MB</b></p>
-            <hr />
-            <p>STORAGE <b style={{float:"right"}}>1.2 GB</b></p>
-          </div>
-
-          <button style={{
-            width:"100%",
-            padding:"12px",
-            marginTop:"20px",
-            borderRadius:"10px",
-            background:"#ffffff10",
-            color:"white",
-            border:"1px solid #ffffff20"
-          }}>
-            Manage Server →
-          </button>
-        </div>
       </section>
 
       <div style={{
@@ -144,14 +112,22 @@ export default function Home() {
         </div>
       </section>
 
-      <footer style={{
-        padding:"30px 5%",
-        borderTop:"1px solid #ffffff15",
-        color:"#789486"
-      }}>
-        <b>ASTRIX HOSTING</b>
-        <span style={{float:"right"}}>© 2026 Astrix Hosting</span>
-      </footer>
+      <footer style={{padding:"30px 5%",borderTop:"1px solid #ffffff15",color:"#789486"}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"28px",flexWrap:"wrap"}}>
+    <div>
+      <b>ASTRIX HOSTING</b>
+      <div style={{marginTop:"10px",color:"#9be7ad"}}>Owner: Jashan Deep Singh</div>
+      <div style={{marginTop:"5px",color:"#9aa9a0"}}>Discord: jxshan84</div>
+      <div style={{marginTop:"5px",color:"#9aa9a0"}}>Email: sasukeuchicha46535@gmail.com</div>
+    </div>
+    <div style={{display:"flex",gap:"18px",alignItems:"center",flexWrap:"wrap"}}>
+      <a href="https://discord.gg/3B5PF9SC8j" target="_blank" rel="noreferrer" style={{color:"#9be7ad",textDecoration:"none"}}>Support Discord</a>
+      <a href="/privacy" style={{color:"#9be7ad",textDecoration:"none"}}>Privacy Policy</a>
+      <a href="/terms" style={{color:"#9be7ad",textDecoration:"none"}}>Terms of Service</a>
+      <span>© 2026 Astrix Hosting</span>
+    </div>
+  </div>
+</footer>
 
       {showHosting && (
         <div style={{

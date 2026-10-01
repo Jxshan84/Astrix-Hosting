@@ -1,29 +1,259 @@
-@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --bg: #07110c;
+  --panel: rgba(12, 24, 18, 0.88);
+  --panel-2: rgba(18, 34, 25, 0.92);
+  --border: rgba(155, 255, 200, 0.12);
+  --text: #f1fff5;
+  --muted: #91a79a;
+  --accent: #9be7ad;
+  --accent-2: #68c98b;
+  --danger: #ff7777;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+main {
+  min-height: 100vh;
+}
+
+main button {
+  transition:
+    background-color 400ms ease,
+    border-color 400ms ease,
+    transform 400ms ease,
+    box-shadow 400ms ease;
+}
+
+main button:hover {
+  transform: translateY(-1px);
+}
+
+.auth-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #020504;
+}
+
+.auth-scenery {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #020504;
+}
+
+.auth-scene {
+  position: absolute;
+  inset: -2%;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1.03);
+  animation: loginWildlife 32s ease-in-out infinite;
+}
+
+.auth-scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(0, 8, 5, .58), rgba(0, 5, 4, .78)),
+    radial-gradient(circle at center, transparent 20%, rgba(0, 0, 0, .42) 100%);
+}
+
+.auth-scene-1 {
+  background-image: url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85");
+}
+
+.auth-scene-2 {
+  background-image: url("https://images.unsplash.com/photo-1752087021432-2524e33d07a7?auto=format&fit=crop&w=2400&q=85");
+  animation-delay: 8s;
+}
+
+.auth-scene-3 {
+  background-image: url("https://images.unsplash.com/photo-1649012056772-1969e9e82003?auto=format&fit=crop&w=2400&q=85");
+  animation-delay: 16s;
+}
+
+.auth-scene-4 {
+  background-image: url("https://images.unsplash.com/photo-1525869916826-972885c91c1e?auto=format&fit=crop&w=2400&q=85");
+  animation-delay: 24s;
+}
+
+@keyframes loginWildlife {
+  0%, 20% { opacity: 0; }
+  5%, 17% { opacity: 1; }
+  25%, 100% { opacity: 0; }
+}
+
+.wildlife-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  animation: wildlife 48s ease-in-out infinite;
+}
+
+@keyframes wildlife {
+  0%, 20% {
+    background-image: url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85");
+  }
+  25%, 45% {
+    background-image: url("https://images.unsplash.com/photo-1752087021432-2524e33d07a7?auto=format&fit=crop&w=2400&q=85");
+  }
+  50%, 70% {
+    background-image: url("https://images.unsplash.com/photo-1649012056772-1969e9e82003?auto=format&fit=crop&w=2400&q=85");
+  }
+  75%, 95% {
+    background-image: url("https://images.unsplash.com/photo-1525869916826-972885c91c1e?auto=format&fit=crop&w=2400&q=85");
+  }
+  100% {
+    background-image: url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85");
+  }
+}
+
+.wildlife-scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 7, 4, .62);
+}
+
+main button,
+main a[href*="discord.gg"] {
+  border-radius: 12px;
+}
+
+input,
+select,
+textarea {
+  color: var(--text);
+  background: rgba(3, 12, 8, .72);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(155, 255, 200, .35);
+  box-shadow: 0 0 0 3px rgba(155, 255, 200, .06);
+}
+
+::selection {
+  background: rgba(155, 255, 200, .2);
+}
+
+@media (max-width: 700px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  main {
+    width: 100%;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+}
+
+.auth-page > *:not(.auth-scenery) {
+  position: relative;
+  z-index: 2;
+}
+
+.auth-page > .auth-scenery {
+  z-index: 0;
 }
 
 
-.wildlife-scene{position:fixed;inset:0;z-index:0;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.34;filter:saturate(.78) brightness(.62);animation:wildlifeScenes 24s infinite}main{position:relative;z-index:1;background:transparent!important}@keyframes wildlifeScenes{0%,20%{background-image:url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85")}25%,45%{background-image:url("https://images.unsplash.com/photo-1752087021432-2524e33d07a7?auto=format&fit=crop&w=2400&q=85")}50%,70%{background-image:url("https://images.unsplash.com/photo-1649012056772-1969e9e82003?auto=format&fit=crop&w=2400&q=85")}75%,95%{background-image:url("https://images.unsplash.com/photo-1525869916826-972885c91c1e?auto=format&fit=crop&w=2400&q=85")}100%{background-image:url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85")}}
+.auth-page {
+  position: relative !important;
+  min-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+.auth-page .auth-scenery {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+}
+
+.auth-page .auth-card {
+  position: relative !important;
+  z-index: 10 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+
+.auth-page .auth-card {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 9999 !important;
+  width: min(92vw, 460px) !important;
+  min-height: 200px !important;
+  background: rgba(5, 12, 9, 0.94) !important;
+  border: 1px solid rgba(155, 255, 200, 0.2) !important;
+  border-radius: 24px !important;
+  padding: 28px !important;
+  color: #fff !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.auth-page .auth-card * {
+  color: inherit;
+}
+
