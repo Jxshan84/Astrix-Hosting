@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
@@ -6,19 +6,24 @@ import { db } from "../db/database.js";
 
 const router = Router();
 
-const jwtSecret = process.env.JWT_SECRET || "development-secret";
+const jwtSecret = process.env.JWT_SECRET;
 
-function createToken(user: any) {
+if (!jwtSecret || jwtSecret.length < 32) {
+  throw new Error("JWT_SECRET must be set to a strong secret of at least 32 characters.");
+}
+
+const SESSION_COOKIE = "astrix_session";
+const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+function createToken(user: any): string {
   return jwt.sign(
     {
       userId: user.id,
       role: user.role,
       plan: user.plan,
     },
-    jwtSecret,
-    {
-      expiresIn: "7d",
-    }
+    jwtSecret!,
+    { expiresIn: "7d" }
   );
 }
 
@@ -34,17 +39,34 @@ function publicUser(user: any) {
   };
 }
 
-function setSessionCookie(res: any, token: string) {
-  res.cookie("astrix_session", token, {
+function setSessionCookie(res: Response, token: string) {
+  res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: COOKIE_MAX_AGE,
     path: "/",
   });
 }
 
-router.post("/register", async (req, res) => {
+function clearSessionCookie(res: Response) {
+  res.clearCookie(SESSION_COOKIE, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+}
+
+function safeRedirectPath(path: string): string {
+  return path.startsWith("/") && !path.startsWith("//")
+    ? path
+    : "/dashboard";
+}
+
+/* ---------------- REGISTER ---------------- */
+
+router.post("/register", async (req: Request, res: Response) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const username = String(req.body?.username || "").trim();
@@ -64,9 +86,19 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    if (password.length < 8) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Invalid email address." });
+    }
+
+    if (username.length < 3 || username.length > 32) {
       return res.status(400).json({
-        error: "Password must be at least 8 characters.",
+        error: "Username must be between 3 and 32 characters.",
+      });
+    }
+
+    if (password.length < 8 || password.length > 128) {
+      return res.status(400).json({
+        error: "Password must be between 8 and 128 characters.",
       });
     }
 
@@ -94,8 +126,7 @@ router.post("/register", async (req, res) => {
     const now = new Date().toISOString();
 
     const result = db
-      .prepare(
-        `
+      .prepare(`
         INSERT INTO users (
           email,
           username,
@@ -106,16 +137,18 @@ router.post("/register", async (req, res) => {
           updated_at
         )
         VALUES (?, ?, ?, 'free', 'user', ?, ?)
-        `
-      )
-      .run(email, username, passwordHash, now, now, now, now);
+      `)
+      .run(email, username, passwordHash, now, now);
 
     const user = db
       .prepare("SELECT * FROM users WHERE id = ?")
-      .get(result.lastInsertRowid);
+      .get(result.lastInsertRowid) as any;
+
+    if (!user) {
+      return res.status(500).json({ error: "Unable to load created account." });
+    }
 
     const token = createToken(user);
-
     setSessionCookie(res, token);
 
     return res.status(201).json({
@@ -124,14 +157,15 @@ router.post("/register", async (req, res) => {
     });
   } catch (error) {
     console.error("Registration error:", error);
-
     return res.status(500).json({
       error: "Unable to create account.",
     });
   }
 });
 
-router.post("/login", async (req, res) => {
+/* ---------------- LOGIN ---------------- */
+
+router.post("/login", async (req: Request, res: Response) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
@@ -146,16 +180,13 @@ router.post("/login", async (req, res) => {
       .prepare("SELECT * FROM users WHERE email = ?")
       .get(email) as any;
 
-    if (!user) {
+    if (!user || !user.password_hash) {
       return res.status(401).json({
         error: "Invalid email or password.",
       });
     }
 
-    const validPassword = await bcrypt.compare(
-      password,
-      user.password_hash
-    );
+    const validPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!validPassword) {
       return res.status(401).json({
@@ -164,7 +195,6 @@ router.post("/login", async (req, res) => {
     }
 
     const token = createToken(user);
-
     setSessionCookie(res, token);
 
     return res.json({
@@ -173,48 +203,44 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-
     return res.status(500).json({
       error: "Unable to log in.",
     });
   }
 });
 
-router.post("/logout", (_req, res) => {
-  res.clearCookie("astrix_session", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-  });
+/* ---------------- LOGOUT ---------------- */
 
-  return res.json({
-    success: true,
-  });
+router.post("/logout", (_req: Request, res: Response) => {
+  clearSessionCookie(res);
+
+  return res.json({ success: true });
 });
 
-router.get("/me", (req, res) => {
-  const token = req.cookies?.astrix_session;
+/* ---------------- CURRENT USER ---------------- */
+
+router.get("/me", (req: Request, res: Response) => {
+  const token = req.cookies?.[SESSION_COOKIE];
 
   if (!token) {
-    return res.status(401).json({
-      authenticated: false,
-    });
+    return res.status(401).json({ authenticated: false });
   }
 
   try {
-    const payload = jwt.verify(token, jwtSecret) as {
-      userId: number;
-    };
+    const payload = jwt.verify(token, jwtSecret!) as jwt.JwtPayload;
+
+    if (typeof payload.userId !== "number") {
+      clearSessionCookie(res);
+      return res.status(401).json({ authenticated: false });
+    }
 
     const user = db
       .prepare("SELECT * FROM users WHERE id = ?")
       .get(payload.userId) as any;
 
     if (!user) {
-      return res.status(401).json({
-        authenticated: false,
-      });
+      clearSessionCookie(res);
+      return res.status(401).json({ authenticated: false });
     }
 
     return res.json({
@@ -222,16 +248,14 @@ router.get("/me", (req, res) => {
       user: publicUser(user),
     });
   } catch {
-    return res.status(401).json({
-      authenticated: false,
-    });
+    clearSessionCookie(res);
+    return res.status(401).json({ authenticated: false });
   }
 });
 
-
 /* ---------------- GOOGLE LOGIN ---------------- */
 
-router.get("/google", (req, res) => {
+router.get("/google", (req: Request, res: Response) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const callbackUrl = process.env.GOOGLE_CALLBACK_URL;
 
@@ -245,15 +269,13 @@ router.get("/google", (req, res) => {
 
   res.cookie("google_oauth_state", state, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 10 * 60 * 1000,
     path: "/api/auth/google",
   });
 
-  const googleUrl = new URL(
-    "https://accounts.google.com/o/oauth2/v2/auth"
-  );
+  const googleUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
 
   googleUrl.searchParams.set("client_id", clientId);
   googleUrl.searchParams.set("redirect_uri", callbackUrl);
@@ -268,7 +290,7 @@ router.get("/google", (req, res) => {
 
 /* ---------------- GOOGLE CALLBACK ---------------- */
 
-router.get("/google/callback", async (req, res) => {
+router.get("/google/callback", async (req: Request, res: Response) => {
   try {
     const { code, state, error } = req.query;
 
@@ -279,21 +301,24 @@ router.get("/google/callback", async (req, res) => {
     const savedState = req.cookies?.google_oauth_state;
 
     if (
-      !state ||
-      !savedState ||
-      String(state) !== String(savedState)
+      typeof state !== "string" ||
+      typeof savedState !== "string" ||
+      !crypto.timingSafeEqual(
+        Buffer.from(state),
+        Buffer.from(savedState)
+      )
     ) {
       return res.redirect("/login?error=invalid_oauth_state");
     }
 
     res.clearCookie("google_oauth_state", {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/api/auth/google",
     });
 
-    if (!code) {
+    if (typeof code !== "string") {
       return res.redirect("/login?error=missing_google_code");
     }
 
@@ -305,33 +330,30 @@ router.get("/google/callback", async (req, res) => {
       return res.redirect("/login?error=google_not_configured");
     }
 
-    const tokenResponse = await fetch(
-      "https://oauth2.googleapis.com/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          code: String(code),
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: callbackUrl,
-          grant_type: "authorization_code",
-        }),
-      }
-    );
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: callbackUrl,
+        grant_type: "authorization_code",
+      }),
+    });
 
     if (!tokenResponse.ok) {
-      console.error(
-        "Google token exchange failed:",
-        await tokenResponse.text()
-      );
-
+      console.error("Google token exchange failed:", tokenResponse.status);
       return res.redirect("/login?error=google_token_exchange");
     }
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as {
+      access_token?: string;
+    };
+
+    if (!tokenData.access_token) {
+      return res.redirect("/login?error=google_token_invalid");
+    }
 
     const userInfoResponse = await fetch(
       "https://openidconnect.googleapis.com/v1/userinfo",
@@ -346,39 +368,46 @@ router.get("/google/callback", async (req, res) => {
       return res.redirect("/login?error=google_userinfo");
     }
 
-    const googleUser = await userInfoResponse.json();
+    const googleUser = await userInfoResponse.json() as {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+    };
 
-    if (!googleUser.sub || !googleUser.email) {
+    if (
+      !googleUser.sub ||
+      !googleUser.email ||
+      googleUser.email_verified !== true
+    ) {
       return res.redirect("/login?error=google_account_invalid");
     }
 
+    const email = googleUser.email.trim().toLowerCase();
+
     let user = db
       .prepare("SELECT * FROM users WHERE google_id = ?")
-      .get(String(googleUser.sub)) as any;
+      .get(googleUser.sub) as any;
 
     if (!user) {
       user = db
         .prepare("SELECT * FROM users WHERE email = ?")
-        .get(String(googleUser.email).toLowerCase()) as any;
+        .get(email) as any;
 
       if (user) {
         db.prepare(
           "UPDATE users SET google_id = ?, updated_at = ? WHERE id = ?"
-        ).run(
-          String(googleUser.sub),
-          new Date().toISOString(),
-          user.id
-        );
+        ).run(googleUser.sub, new Date().toISOString(), user.id);
+
+        user = db
+          .prepare("SELECT * FROM users WHERE id = ?")
+          .get(user.id) as any;
       }
     }
 
     if (!user) {
       const baseUsername =
-        String(
-          googleUser.name ||
-          googleUser.email.split("@")[0] ||
-          "user"
-        )
+        String(googleUser.name || email.split("@")[0] || "user")
           .toLowerCase()
           .replace(/[^a-z0-9_]/g, "")
           .slice(0, 20) || "user";
@@ -387,23 +416,17 @@ router.get("/google/callback", async (req, res) => {
       let counter = 1;
 
       while (
-        db
-          .prepare("SELECT id FROM users WHERE username = ?")
-          .get(username)
+        db.prepare("SELECT id FROM users WHERE username = ?").get(username)
       ) {
         username = `${baseUsername}${counter++}`;
       }
 
-      const randomPassword = crypto
-        .randomBytes(32)
-        .toString("hex");
-
+      const randomPassword = crypto.randomBytes(32).toString("hex");
       const passwordHash = await bcrypt.hash(randomPassword, 12);
       const now = new Date().toISOString();
 
       const result = db
-        .prepare(
-          `
+        .prepare(`
           INSERT INTO users (
             email,
             username,
@@ -415,29 +438,26 @@ router.get("/google/callback", async (req, res) => {
             updated_at
           )
           VALUES (?, ?, ?, ?, 'free', 'user', ?, ?)
-          `
-        )
-        .run(
-          String(googleUser.email).toLowerCase(),
-          username,
-          passwordHash,
-          String(googleUser.sub),
-          now,
-          now
-        );
+        `)
+        .run(email, username, passwordHash, googleUser.sub, now, now);
 
       user = db
         .prepare("SELECT * FROM users WHERE id = ?")
         .get(result.lastInsertRowid) as any;
     }
 
+    if (!user) {
+      return res.redirect("/login?error=google_account_create_failed");
+    }
+
     const token = createToken(user);
     setSessionCookie(res, token);
 
-    return res.redirect("/dashboard");
+    return res.redirect(safeRedirectPath("/dashboard"));
   } catch (error) {
     console.error("Google OAuth error:", error);
     return res.redirect("/login?error=google_login_failed");
   }
 });
+
 export default router;
