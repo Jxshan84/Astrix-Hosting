@@ -1,8 +1,10 @@
+import Link from "next/link";
+
 export default function PrivacyPage() {
   return (
     <main className="policy-page">
       <div className="policy-card">
-        <a href="/">← Back to Astrix Hosting</a>
+        <Link href="/">← Back to Astrix Hosting</Link>
         <p className="policy-label">ASTRIX HOSTING</p>
         <h1>Privacy Policy</h1>
         <p className="policy-muted">Last updated: September 30, 2026</p>

@@ -1,8 +1,10 @@
+import Link from "next/link";
+
 export default function TermsPage() {
   return (
     <main className="policy-page">
       <div className="policy-card">
-        <a href="/">← Back to Astrix Hosting</a>
+        <Link href="/">← Back to Astrix Hosting</Link>
         <p className="policy-label">ASTRIX HOSTING</p>
         <h1>Terms of Service</h1>
         <p className="policy-muted">Last updated: September 30, 2026</p>
@@ -85,7 +87,7 @@ export default function TermsPage() {
 
         <h2>11. No Unauthorized Access</h2>
         <p>
-          You may not attempt to access another user's account, server,
+          You may not attempt to access another user&apos;s account, server,
           container, files, credentials, internal APIs, or administrative
           systems without authorization.
         </p>

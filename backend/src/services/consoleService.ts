@@ -23,20 +23,32 @@ export function attachConsole(ws: WebSocket, container: string) {
   });
 
   ws.on("message", (message) => {
-    if (!process.stdin.destroyed) {
+    if (!process.stdin.destroyed && process.stdin.writable) {
       process.stdin.write(message.toString());
     }
   });
 
+  ws.on("error", () => {
+    if (!process.killed) process.kill();
+  });
+
   ws.on("close", () => {
-    process.kill();
+    if (!process.killed) process.kill();
+  });
+
+  process.on("error", (error) => {
+    console.error("Console provider process could not start.", error);
+    if (ws.readyState === ws.OPEN) {
+      ws.send("Console unavailable: the server provider could not start the shell.\n");
+      ws.close(1011, "Server provider unavailable");
+    }
   });
 
   process.on("close", () => {
     if (ws.readyState === ws.OPEN) {
-      ws.close();
+      ws.close(1000, "Console process ended");
     }
   });
 
-  ws.send("Connected to Astrix server console.\\n");
+  ws.send("Connected to Astrix server console.\n");
 }

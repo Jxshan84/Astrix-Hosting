@@ -1,3 +1,7 @@
+import Link from "next/link";
+import Image from "next/image";
+import WelcomeRibbon from "./WelcomeRibbon";
+
 export default function Home() {
   const features = [
     ["⚡", "Instant Deploy", "Deploy your bot/server quickly with a simple setup."],
@@ -55,7 +59,7 @@ export default function Home() {
       <div className="wildlife-scene" aria-hidden="true" />
 
       <nav className="home-nav">
-        <a href="/" className="brand">🌿 ASTRIX HOSTING</a>
+        <Link href="/" className="brand">🌿 ASTRIX HOSTING</Link>
 
         <div className="nav-links">
           <a href="#status">Status</a>
@@ -66,6 +70,8 @@ export default function Home() {
           <a href="/login">Login</a>
         </div>
       </nav>
+
+      <WelcomeRibbon />
 
       <section className="hero-section">
         <div className="hero-badge">✦ NEXT-GENERATION BOT HOSTING</div>
@@ -140,9 +146,12 @@ export default function Home() {
         <div className="server-grid">
           {servers.map(([name, description, icon, color]) => (
             <article className="server-type-card" key={name}>
-              <img
+              <Image
                 src={`https://cdn.simpleicons.org/${icon}/${color}`}
                 alt=""
+                width={30}
+                height={30}
+                unoptimized
               />
               <div>
                 <h3>{name}</h3>

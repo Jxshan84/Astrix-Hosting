@@ -1,38 +1,57 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import Link from "next/link";
 
 export default function SupportPage() {
-  const [plan, setPlan] = useState("free");
+  const [user, setUser] = useState<{ username: string; plan: string } | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [result, setResult] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/auth/me")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Sign in to open a support ticket.");
+        const data = await response.json();
+        setUser(data.user);
+      })
+      .catch((error: unknown) => {
+        setResult(error instanceof Error ? error.message : "Unable to check your account.");
+      })
+      .finally(() => setAuthLoading(false));
+  }, []);
 
   async function createTicket(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!user) return;
 
-    const form = new FormData(e.currentTarget);
+    const formElement = e.currentTarget;
+    const form = new FormData(formElement);
 
-    const response = await fetch("/api/support/tickets", {
+    try {
+      const response = await fetch("/api/support/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: form.get("userId"),
-        userName: form.get("userName"),
-        plan,
         subject: form.get("subject"),
         category: form.get("category"),
         message: form.get("message")
       })
-    });
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.ok) {
-      setResult(
-        `Ticket ${data.ticket.ticketCode} created — ${data.ticket.priority} priority`
-      );
-      e.currentTarget.reset();
-    } else {
-      setResult(data.error || "Could not create ticket.");
+      if (response.ok) {
+        setResult(
+          `Ticket ${data.ticket.ticketCode} created — ${data.ticket.priority} priority`
+        );
+        formElement.reset();
+      } else {
+        setResult(data.error || "Could not create ticket.");
+      }
+    } catch {
+      setResult("Unable to connect to support. Please try again.");
     }
   }
 
@@ -64,20 +83,12 @@ export default function SupportPage() {
           <p>Premium tickets automatically receive priority handling.</p>
         </div>
 
-        <form onSubmit={createTicket}>
-          <input name="userId" placeholder="Your user ID" required />
-          <input name="userName" placeholder="Your name" required />
-
-          <select
-            value={plan}
-            onChange={(e) => setPlan(e.target.value)}
-          >
-            <option value="free">Free</option>
-            <option value="starter">Starter</option>
-            <option value="pro">Pro</option>
-            <option value="premium">Premium — Priority 24/7</option>
-          </select>
-
+        {authLoading ? (
+          <p role="status">Checking your account...</p>
+        ) : user ? (
+          <>
+          <p>Submitting as {user.username} · {user.plan} plan</p>
+          <form onSubmit={createTicket}>
           <input name="subject" placeholder="Ticket subject" required />
 
           <select name="category" defaultValue="general">
@@ -96,8 +107,14 @@ export default function SupportPage() {
 
           <button type="submit">Create Ticket</button>
 
-          {result && <div className="ticket-result">{result}</div>}
-        </form>
+          </form>
+          </>
+        ) : (
+          <p role="alert">
+            {result} <Link href="/login">Sign in</Link> to open a ticket.
+          </p>
+        )}
+        {result && user && <div className="ticket-result" role="status">{result}</div>}
       </section>
 
       <section className="support-info">

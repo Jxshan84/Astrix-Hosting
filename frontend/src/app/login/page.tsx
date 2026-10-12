@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -10,6 +10,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const oauthError = new URLSearchParams(window.location.search).get("error");
+    if (!oauthError) return;
+
+    const messages: Record<string, string> = {
+      google_cancelled: "Google sign-in was cancelled.",
+      google_not_configured: "Google sign-in is temporarily unavailable. Try Discord or email sign-in.",
+      google_token_exchange: "Google could not complete sign-in. Please try again.",
+      google_userinfo: "Google could not verify your account. Please try again.",
+      google_account_invalid: "Google did not return a verified email address for this account.",
+      google_login_failed: "Google sign-in could not be completed. Please try again or use Discord or email.",
+      invalid_oauth_state: "Your sign-in session expired. Please start Google sign-in again.",
+      missing_google_code: "Google did not complete sign-in. Please try again.",
+    };
+    const timeout = window.setTimeout(() => {
+      setError(messages[oauthError] ?? "Sign-in could not be completed. Please try again.");
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   async function login(e: FormEvent) {
     e.preventDefault();
@@ -31,6 +51,9 @@ export default function LoginPage() {
         return;
       }
 
+      if (new URLSearchParams(window.location.search).get("welcome") === "claim") {
+        await fetch("/api/welcome/claim", { method: "POST", credentials: "include" }).catch(() => undefined);
+      }
       router.push("/dashboard");
     } catch {
       setError("Unable to connect to Astrix Hosting.");
@@ -53,12 +76,12 @@ export default function LoginPage() {
         <p>Sign in to manage your hosting servers.</p>
 
         <div className="oauth-buttons">
-          <button type="button" className="oauth-button" onClick={() => window.location.href="/api/auth/google"}>
+          <a className="oauth-button" href="/api/auth/google">
             Continue with Google
-          </button>
-          <button type="button" className="oauth-button" onClick={() => window.location.href="/api/auth/discord"}>
+          </a>
+          <a className="oauth-button" href="/api/auth/discord">
             Continue with Discord
-          </button>
+          </a>
         </div>
 
         <div className="auth-divider"><span>or continue with email</span></div>
@@ -88,7 +111,7 @@ export default function LoginPage() {
         </form>
 
         <p className="auth-footer">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/register">Create one</Link>
         </p>
       </div>

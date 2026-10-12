@@ -1,14 +1,12 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { db } from "../db/database.js";
+import { recordAudit } from "./audit.js";
 
 const execFileAsync = promisify(execFile);
 
 const PREFIX = "astrix";
 const CHECK_INTERVAL = 20_000;
-const REQUIRED_STRIKES = 3;
-const MEMORY_LIMIT = 92;
-const CPU_LIMIT = 95;
-
 const strikes = new Map<string, number>();
 
 function toMiB(value: string): number {
@@ -46,6 +44,21 @@ function parseMemory(value: string) {
 
 async function checkOverload() {
   try {
+    const settings = db.prepare(`
+      SELECT automation_enabled, overload_cpu_threshold,
+             overload_memory_threshold, overload_required_strikes
+      FROM security_settings WHERE id = 1
+    `).get() as {
+      automation_enabled: number;
+      overload_cpu_threshold: number;
+      overload_memory_threshold: number;
+      overload_required_strikes: number;
+    } | undefined;
+    if (!settings?.automation_enabled) {
+      strikes.clear();
+      return;
+    }
+
     const { stdout } = await execFileAsync("docker", [
       "stats",
       "--no-stream",
@@ -67,7 +80,8 @@ async function checkOverload() {
       const cpu = Number.parseFloat(cpuRaw?.replace("%", "") || "0");
       const memory = parseMemory(memoryRaw || "");
       const overloaded =
-        cpu >= CPU_LIMIT || memory.percent >= MEMORY_LIMIT;
+        cpu >= settings.overload_cpu_threshold ||
+        memory.percent >= settings.overload_memory_threshold;
 
       if (!overloaded) {
         strikes.delete(name);
@@ -78,20 +92,49 @@ async function checkOverload() {
       strikes.set(name, nextStrike);
 
       console.warn(
-        `[OVERLOAD] ${name} CPU=${cpu.toFixed(1)}% RAM=${memory.percent.toFixed(1)}% strike=${nextStrike}/${REQUIRED_STRIKES}`
+        `[OVERLOAD] ${name} CPU=${cpu.toFixed(1)}% RAM=${memory.percent.toFixed(1)}% strike=${nextStrike}/${settings.overload_required_strikes}`
       );
 
-      if (nextStrike < REQUIRED_STRIKES) continue;
+      if (nextStrike < settings.overload_required_strikes) continue;
 
       console.error(
         `[OVERLOAD] Stopping ${name} after sustained resource overload.`
       );
 
+      let stopped = false;
       try {
         await execFileAsync("docker", ["stop", name]);
         console.log(`[OVERLOAD] ${name} stopped successfully.`);
+        stopped = true;
       } catch (error) {
         console.error(`[OVERLOAD] Failed to stop ${name}:`, error);
+      }
+
+      try {
+        const owner = db.prepare(`
+          SELECT owner_user_id FROM servers WHERE container_name = ?
+        `).get(name) as { owner_user_id: number } | undefined;
+        const now = new Date().toISOString();
+        const incident = db.prepare(`
+          INSERT INTO security_incidents
+            (incident_type, actor_user_id, evidence_ref, action_taken, created_at)
+          VALUES ('resource_overload', ?, ?, ?, ?)
+        `).run(
+          owner?.owner_user_id ?? null,
+          `container:${name}:cpu:${cpu.toFixed(1)}:memory:${memory.percent.toFixed(1)}`,
+          stopped
+            ? "server_stopped_after_sustained_overload"
+            : "overload_stop_failed_owner_review",
+          now
+        );
+        recordAudit(stopped ? "security.overload_stop" : "security.overload_stop_failed", null, owner?.owner_user_id ?? null, {
+          incidentId: Number(incident.lastInsertRowid),
+          container: name,
+          cpuPercent: cpu,
+          memoryPercent: memory.percent,
+        });
+      } catch (error) {
+        console.error(`[OVERLOAD] Failed to record incident for ${name}:`, error);
       }
 
       strikes.delete(name);
@@ -102,13 +145,13 @@ async function checkOverload() {
 }
 
 export function startOverloadMonitor() {
-  console.log(
-    `[OVERLOAD] Monitor enabled: RAM ${MEMORY_LIMIT}% / CPU ${CPU_LIMIT}%`
-  );
+  console.log("[OVERLOAD] Monitor enabled; limits are owner-configured.");
 
   void checkOverload();
 
-  setInterval(() => {
+  const timer = setInterval(() => {
     void checkOverload();
   }, CHECK_INTERVAL);
+  timer.unref();
+  return () => clearInterval(timer);
 }

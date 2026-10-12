@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
@@ -6,21 +6,29 @@ import { db } from "../db/database.js";
 
 const router = Router();
 
-const jwtSecret = process.env.JWT_SECRET || "development-secret";
+const jwtSecret = process.env.JWT_SECRET;
+const FRONTEND_URL = (
+  process.env.FRONTEND_URL ||
+  "https://astrix-hosting-ebpy.vercel.app"
+).replace(/\/+$/, "");
 
-function createToken(user: any) {
+function frontendRedirect(path: string): string {
+  return `${FRONTEND_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function createToken(user: any): string {
+  if (!jwtSecret || jwtSecret.length < 32) {
+    throw new Error("JWT_SECRET must be at least 32 characters.");
+  }
+
   return jwt.sign(
-    {
-      userId: user.id,
-      role: user.role,
-      plan: user.plan,
-    },
+    { userId: user.id, role: user.role, plan: user.plan },
     jwtSecret,
     { expiresIn: "7d" }
   );
 }
 
-function setSessionCookie(res: any, token: string) {
+function setSessionCookie(res: Response, token: string): void {
   res.cookie("astrix_session", token, {
     httpOnly: true,
     secure: true,
@@ -30,14 +38,47 @@ function setSessionCookie(res: any, token: string) {
   });
 }
 
+function readCookie(req: Request, name: string): string | undefined {
+  const parsed = req.cookies?.[name];
+  if (typeof parsed === "string") return parsed;
+
+  const header = req.headers.cookie;
+  if (!header) return undefined;
+
+  for (const item of header.split(";")) {
+    const index = item.indexOf("=");
+    if (index < 0) continue;
+
+    if (item.slice(0, index).trim() === name) {
+      const value = item.slice(index + 1).trim();
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function clearStateCookie(res: Response): void {
+  res.clearCookie("discord_oauth_state", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+  });
+}
+
 router.get("/discord", (_req, res) => {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const callbackUrl = process.env.DISCORD_CALLBACK_URL;
 
   if (!clientId || !callbackUrl) {
-    return res.status(500).json({
-      error: "Discord login is not configured.",
-    });
+    return res.redirect(
+      frontendRedirect("/login?error=discord_not_configured")
+    );
   }
 
   const state = crypto.randomBytes(32).toString("hex");
@@ -47,18 +88,17 @@ router.get("/discord", (_req, res) => {
     secure: true,
     sameSite: "lax",
     maxAge: 10 * 60 * 1000,
-    path: "/api/auth/discord",
+    path: "/",
   });
 
-  const discordUrl = new URL("https://discord.com/oauth2/authorize");
+  const url = new URL("https://discord.com/oauth2/authorize");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", callbackUrl);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", "identify email guilds.join");
+  url.searchParams.set("state", state);
 
-  discordUrl.searchParams.set("client_id", clientId);
-  discordUrl.searchParams.set("redirect_uri", callbackUrl);
-  discordUrl.searchParams.set("response_type", "code");
-  discordUrl.searchParams.set("scope", "identify email guilds.join");
-  discordUrl.searchParams.set("state", state);
-
-  return res.redirect(discordUrl.toString());
+  return res.redirect(url.toString());
 });
 
 router.get("/discord/callback", async (req, res) => {
@@ -66,17 +106,33 @@ router.get("/discord/callback", async (req, res) => {
     const { code, state, error } = req.query;
 
     if (error) {
-      return res.redirect("/login?error=discord_cancelled");
+      clearStateCookie(res);
+      return res.redirect(
+        frontendRedirect("/login?error=discord_cancelled")
+      );
     }
 
-    const savedState = req.cookies?.discord_oauth_state;
+    const savedState = readCookie(req, "discord_oauth_state");
 
     if (
-      !state ||
-      !savedState ||
-      String(state) !== String(savedState)
+      typeof state !== "string" ||
+      typeof savedState !== "string" ||
+      !/^[a-f0-9]{64}$/.test(state) ||
+      !/^[a-f0-9]{64}$/.test(savedState) ||
+      !crypto.timingSafeEqual(Buffer.from(state), Buffer.from(savedState))
     ) {
-      return res.redirect("/login?error=invalid_discord_state");
+      clearStateCookie(res);
+      return res.redirect(
+        frontendRedirect("/login?error=invalid_discord_state")
+      );
+    }
+
+    clearStateCookie(res);
+
+    if (typeof code !== "string" || !code) {
+      return res.redirect(
+        frontendRedirect("/login?error=discord_missing_code")
+      );
     }
 
     const clientId = process.env.DISCORD_CLIENT_ID;
@@ -84,7 +140,9 @@ router.get("/discord/callback", async (req, res) => {
     const callbackUrl = process.env.DISCORD_CALLBACK_URL;
 
     if (!clientId || !clientSecret || !callbackUrl) {
-      return res.redirect("/login?error=discord_not_configured");
+      return res.redirect(
+        frontendRedirect("/login?error=discord_not_configured")
+      );
     }
 
     const tokenResponse = await fetch(
@@ -98,14 +156,17 @@ router.get("/discord/callback", async (req, res) => {
           client_id: clientId,
           client_secret: clientSecret,
           grant_type: "authorization_code",
-          code: String(code),
+          code,
           redirect_uri: callbackUrl,
         }),
       }
     );
 
     if (!tokenResponse.ok) {
-      throw new Error("Discord token request failed");
+      console.error("Discord token exchange failed:", tokenResponse.status);
+      return res.redirect(
+        frontendRedirect("/login?error=discord_token_failed")
+      );
     }
 
     const tokenData = (await tokenResponse.json()) as {
@@ -122,7 +183,10 @@ router.get("/discord/callback", async (req, res) => {
     );
 
     if (!userResponse.ok) {
-      throw new Error("Discord user request failed");
+      console.error("Discord user request failed:", userResponse.status);
+      return res.redirect(
+        frontendRedirect("/login?error=discord_user_failed")
+      );
     }
 
     const discordUser = (await userResponse.json()) as {
@@ -133,8 +197,12 @@ router.get("/discord/callback", async (req, res) => {
     };
 
     if (!discordUser.email) {
-      return res.redirect("/login?error=discord_email_required");
+      return res.redirect(
+        frontendRedirect("/login?error=discord_email_required")
+      );
     }
+
+    const email = discordUser.email.toLowerCase();
 
     let user = db
       .prepare("SELECT * FROM users WHERE discord_id = ?")
@@ -143,24 +211,22 @@ router.get("/discord/callback", async (req, res) => {
     if (!user) {
       user = db
         .prepare("SELECT * FROM users WHERE email = ?")
-        .get(discordUser.email.toLowerCase()) as any;
+        .get(email) as any;
 
       if (user) {
         db.prepare(
           "UPDATE users SET discord_id = ?, updated_at = ? WHERE id = ?"
-        ).run(
-          discordUser.id,
-          new Date().toISOString(),
-          user.id
-        );
+        ).run(discordUser.id, new Date().toISOString(), user.id);
+
+        user = db
+          .prepare("SELECT * FROM users WHERE id = ?")
+          .get(user.id) as any;
       }
     }
 
     if (!user) {
       const baseUsername =
-        (discordUser.global_name ||
-          discordUser.username ||
-          "discord-user")
+        (discordUser.global_name || discordUser.username || "discord-user")
           .toLowerCase()
           .replace(/[^a-z0-9_]/g, "")
           .slice(0, 20) || "discorduser";
@@ -169,56 +235,43 @@ router.get("/discord/callback", async (req, res) => {
       let counter = 1;
 
       while (
-        db
-          .prepare("SELECT id FROM users WHERE username = ?")
-          .get(username)
+        db.prepare("SELECT id FROM users WHERE username = ?").get(username)
       ) {
         username = `${baseUsername}${counter++}`;
       }
 
-      const randomPassword = crypto
-        .randomBytes(32)
-        .toString("hex");
-
-      const passwordHash = await bcrypt.hash(randomPassword, 12);
+      const passwordHash = await bcrypt.hash(
+        crypto.randomBytes(32).toString("hex"),
+        12
+      );
       const now = new Date().toISOString();
 
-      const result = db
-        .prepare(`
-          INSERT INTO users (
-            email,
-            username,
-            password_hash,
-            discord_id,
-            plan,
-            role,
-            created_at,
-            updated_at
-          )
-          VALUES (?, ?, ?, ?, 'free', 'user', ?, ?)
-        `)
-        .run(
-          discordUser.email.toLowerCase(),
-          username,
-          passwordHash,
-          discordUser.id,
-          now,
-          now
-        );
+      const result = db.prepare(`
+        INSERT INTO users (
+          email, username, password_hash, discord_id,
+          plan, role, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, 'free', 'user', ?, ?)
+      `).run(email, username, passwordHash, discordUser.id, now, now);
 
       user = db
         .prepare("SELECT * FROM users WHERE id = ?")
         .get(result.lastInsertRowid) as any;
     }
 
-    const token = createToken(user);
+    if (!user) {
+      return res.redirect(
+        frontendRedirect("/login?error=discord_user_creation_failed")
+      );
+    }
 
-    setSessionCookie(res, token);
-
-    return res.redirect("/dashboard");
+    setSessionCookie(res, createToken(user));
+    return res.redirect(frontendRedirect("/dashboard"));
   } catch (error) {
     console.error("Discord OAuth error:", error);
-    return res.redirect("/login?error=discord_login_failed");
+    return res.redirect(
+      frontendRedirect("/login?error=discord_login_failed")
+    );
   }
 });
 

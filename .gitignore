@@ -2,3 +2,12 @@
 backend/.env
 backend/.env.*
 !backend/.env.example
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+
+# Dependencies and generated files
+node_modules/
+dist/

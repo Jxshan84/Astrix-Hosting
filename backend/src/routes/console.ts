@@ -1,12 +1,16 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import {
+  requireAuth,
+  requireUnrestrictedAccount,
+  type AuthRequest,
+} from "../middleware/auth.js";
 import { db } from "../db/database.js";
+import { jwtSecret } from "../config.js";
 
 const router = Router();
-const jwtSecret = process.env.JWT_SECRET || "development-secret";
 
-router.get("/token/:serverId", requireAuth, (req: AuthRequest, res) => {
+router.get("/token/:serverId", requireAuth, requireUnrestrictedAccount, (req: AuthRequest, res) => {
   if (!req.userId) {
     return res.status(401).json({ error: "Authentication required." });
   }

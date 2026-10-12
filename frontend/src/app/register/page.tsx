@@ -34,7 +34,9 @@ export default function RegisterPage() {
           email,
           username,
           password,
-          discordId: discordId || undefined
+          discordId: discordId || undefined,
+          termsAccepted: true,
+          privacyAccepted: true,
         })
       });
 
@@ -45,6 +47,9 @@ export default function RegisterPage() {
         return;
       }
 
+      if (new URLSearchParams(window.location.search).get("welcome") === "claim") {
+        await fetch("/api/welcome/claim", { method: "POST", credentials: "include" }).catch(() => undefined);
+      }
       router.push("/dashboard");
     } catch {
       setError("Unable to connect to Astrix Hosting.");
@@ -61,12 +66,12 @@ export default function RegisterPage() {
         <p>Start managing your Astrix Hosting servers.</p>
 
         <div className="oauth-buttons">
-          <button type="button" className="oauth-button" onClick={() => window.location.href="/api/auth/google"}>
+          <a className="oauth-button" href="/api/auth/google">
             Continue with Google
-          </button>
-          <button type="button" className="oauth-button" onClick={() => window.location.href="/api/auth/discord"}>
+          </a>
+          <a className="oauth-button" href="/api/auth/discord">
             Continue with Discord
-          </button>
+          </a>
         </div>
 
         <div className="auth-divider"><span>or create with email</span></div>

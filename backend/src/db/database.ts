@@ -1,8 +1,18 @@
 import Database from "better-sqlite3";
+import path from "node:path";
+import { runMigrations } from "./migrations.js";
 
-export const db = new Database("astrix-hosting.db");
+const configuredDatabasePath = process.env.DATABASE_PATH?.trim();
+const databasePath = configuredDatabasePath === ":memory:"
+  ? ":memory:"
+  : configuredDatabasePath
+    ? path.resolve(configuredDatabasePath)
+    : path.resolve(__dirname, "../../astrix-hosting.db");
+
+export const db = new Database(databasePath);
 
 db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS tickets (
@@ -109,3 +119,5 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_servers_owner
   ON servers(owner_user_id);
 `);
+
+  runMigrations(db);

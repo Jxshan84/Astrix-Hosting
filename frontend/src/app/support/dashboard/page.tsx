@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Ticket = {
   id: number;
@@ -17,29 +18,53 @@ type Ticket = {
 export default function SupportDashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function loadTickets() {
-    const response = await fetch("/api/support/tickets", {
-      cache: "no-store"
-    });
+    setError("");
+    try {
+      const response = await fetch("/api/support/tickets", {
+        cache: "no-store"
+      });
 
-    const data = await response.json();
-    setTickets(data.tickets || []);
-    setLoading(false);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load support tickets.");
+      }
+      setTickets(data.tickets);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load support tickets.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateStatus(code: string, status: string) {
-    await fetch(`/api/support/tickets/${code}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status })
-    });
-
-    loadTickets();
+    try {
+      const response = await fetch(`/api/support/tickets/${code}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to update ticket.");
+      await loadTickets();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Unable to update ticket.");
+    }
   }
 
   useEffect(() => {
-    loadTickets();
+    void fetch("/api/support/tickets", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Support staff sign-in required.");
+        setTickets(data.tickets);
+      })
+      .catch((loadError: unknown) => {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load support tickets.");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -49,6 +74,7 @@ export default function SupportDashboard() {
           <span className="support-badge">SUPPORT TEAM</span>
           <h1>Astrix Support Dashboard</h1>
           <p>Manage customer tickets and priority requests.</p>
+          <Link href="/support/appeals">Appeal review panel</Link>
         </div>
 
         <div className="online-status">
@@ -69,6 +95,12 @@ export default function SupportDashboard() {
         </div>
 
         {loading && <p>Loading tickets...</p>}
+
+        {error && (
+          <p role="alert">
+            {error} <Link href="/login">Sign in</Link>
+          </p>
+        )}
 
         {!loading && tickets.length === 0 && (
           <p className="empty">No support tickets yet.</p>

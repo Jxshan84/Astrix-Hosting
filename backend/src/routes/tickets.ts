@@ -1,38 +1,67 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
 import { db } from "../db/database.js";
+import {
+  isOwner,
+  requireAuth,
+  rateLimitUserAction,
+  requireUnrestrictedAccount,
+  type AuthRequest,
+} from "../middleware/auth.js";
 
 const router = Router();
+router.use(requireAuth);
+router.use(requireUnrestrictedAccount);
 
-const premiumPlans = ["premium"];
+function isSupportStaff(userId: number | undefined) {
+  if (!userId) return false;
+  return isOwner(userId) || Boolean(db.prepare(`
+    SELECT 1 FROM staff_permissions WHERE user_id = ? AND permission = 'support_review'
+  `).get(userId));
+}
 
 function isPremium(plan: string) {
-  return premiumPlans.includes(plan.toLowerCase());
+  return plan.toLowerCase() === "premium";
 }
 
 function getPriority(plan: string) {
   return isPremium(plan) ? "priority" : "normal";
 }
 
-router.post("/", (req, res) => {
-  const {
-    userId,
-    userName,
-    plan = "free",
-    subject,
-    category = "general",
-    message
-  } = req.body;
+router.post("/", rateLimitUserAction("ticket_create"), (req: AuthRequest, res) => {
+  const subject = String(req.body?.subject || "").trim();
+  const category = String(req.body?.category || "general").trim();
+  const message = String(req.body?.message || "").trim();
 
-  if (!userId || !userName || !subject || !message) {
+  if (!req.userId || !subject || !message) {
     return res.status(400).json({
       error: "Missing required ticket information."
     });
   }
 
+  if (subject.length > 160 || message.length > 10_000) {
+    return res.status(400).json({
+      error: "Ticket subject or message exceeds the allowed length."
+    });
+  }
+
+  if (!["general", "hosting", "billing", "technical", "account"].includes(category)) {
+    return res.status(400).json({ error: "Invalid ticket category." });
+  }
+
+  const user = db
+    .prepare("SELECT id, username, plan FROM users WHERE id = ?")
+    .get(req.userId) as
+    | { id: number; username: string; plan: string }
+    | undefined;
+
+  if (!user) {
+    return res.status(401).json({ error: "Authentication required." });
+  }
+
   const now = new Date().toISOString();
   const ticketCode = `AST-${randomUUID().slice(0, 8).toUpperCase()}`;
-  const priority = getPriority(plan);
+  const priority = getPriority(user.plan);
 
   const result = db.prepare(`
     INSERT INTO tickets
@@ -40,9 +69,9 @@ router.post("/", (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
   `).run(
     ticketCode,
-    userId,
-    userName,
-    plan,
+    String(user.id),
+    user.username,
+    user.plan,
     subject,
     category,
     message,
@@ -58,24 +87,31 @@ router.post("/", (req, res) => {
       ticketCode,
       priority,
       status: "pending",
-      available24x7: isPremium(plan)
+      available24x7: user.plan.toLowerCase() === "premium"
     }
   });
 });
 
-router.get("/", (_req, res) => {
-  const tickets = db.prepare(`
-    SELECT *
-    FROM tickets
-    ORDER BY
-      CASE WHEN priority = 'priority' THEN 0 ELSE 1 END,
-      created_at DESC
-  `).all();
+router.get("/", (req: AuthRequest, res) => {
+  const tickets = isSupportStaff(req.userId)
+    ? db.prepare(`
+        SELECT *
+        FROM tickets
+        ORDER BY
+          CASE WHEN priority = 'priority' THEN 0 ELSE 1 END,
+          created_at DESC
+      `).all()
+    : db.prepare(`
+        SELECT *
+        FROM tickets
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+      `).all(String(req.userId));
 
   res.json({ tickets });
 });
 
-router.get("/:code", (req, res) => {
+router.get("/:code", (req: AuthRequest, res) => {
   const ticket = db.prepare(`
     SELECT * FROM tickets WHERE ticket_code = ?
   `).get(req.params.code);
@@ -86,17 +122,26 @@ router.get("/:code", (req, res) => {
     });
   }
 
+  const record = ticket as { id: number; user_id: string };
+  if (record.user_id !== String(req.userId) && !isSupportStaff(req.userId)) {
+    return res.status(404).json({ error: "Ticket not found." });
+  }
+
   const messages = db.prepare(`
     SELECT *
     FROM ticket_messages
     WHERE ticket_id = ?
     ORDER BY created_at ASC
-  `).all((ticket as { id: number }).id);
+  `).all(record.id);
 
   res.json({ ticket, messages });
 });
 
-router.patch("/:code/status", (req, res) => {
+router.patch("/:code/status", (req: AuthRequest, res) => {
+  if (!isSupportStaff(req.userId)) {
+    return res.status(403).json({ error: "Support staff access required." });
+  }
+
   const { status } = req.body;
 
   const allowed = [
@@ -131,23 +176,35 @@ router.patch("/:code/status", (req, res) => {
   });
 });
 
-router.post("/:code/messages", (req, res) => {
-  const { senderId, senderName, senderRole = "support", message } = req.body;
+router.post("/:code/messages", (req: AuthRequest, res) => {
+  const message = String(req.body?.message || "").trim();
 
-  if (!senderId || !senderName || !message) {
+  if (!message || message.length > 10_000) {
     return res.status(400).json({
       error: "Missing message information."
     });
   }
 
   const ticket = db.prepare(`
-    SELECT id FROM tickets WHERE ticket_code = ?
-  `).get(req.params.code) as { id: number } | undefined;
+    SELECT id, user_id FROM tickets WHERE ticket_code = ?
+  `).get(req.params.code) as { id: number; user_id: string } | undefined;
 
   if (!ticket) {
     return res.status(404).json({
       error: "Ticket not found."
     });
+  }
+
+  if (ticket.user_id !== String(req.userId) && !isSupportStaff(req.userId)) {
+    return res.status(404).json({ error: "Ticket not found." });
+  }
+
+  const user = db
+    .prepare("SELECT username, role FROM users WHERE id = ?")
+    .get(req.userId) as { username: string; role: string } | undefined;
+
+  if (!user) {
+    return res.status(401).json({ error: "Authentication required." });
   }
 
   const now = new Date().toISOString();
@@ -158,9 +215,9 @@ router.post("/:code/messages", (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(
     ticket.id,
-    senderId,
-    senderName,
-    senderRole,
+    String(req.userId),
+    user.username,
+    isSupportStaff(req.userId) ? (isOwner(req.userId) ? "owner" : "support") : "user",
     message,
     now
   );

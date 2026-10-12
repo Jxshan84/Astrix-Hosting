@@ -1,5 +1,7 @@
 import { Router } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { db } from "../db/database.js";
+import { recordAudit } from "../services/audit.js";
 
 const router = Router();
 
@@ -8,15 +10,19 @@ const allowedPlans = new Set(["free", "starter", "pro", "premium"]);
 router.post("/sync", (req, res) => {
   const expectedKey = process.env.ASTRIX_BOT_SYNC_KEY;
 
-  if (!expectedKey) {
+  if (!expectedKey || expectedKey.length < 32) {
     return res.status(503).json({
       error: "Premium sync is not configured."
     });
   }
 
-  const providedKey = String(req.header("x-astrix-bot-key") || "");
+  const providedKey = Buffer.from(req.header("x-astrix-bot-key") || "");
+  const expectedKeyBuffer = Buffer.from(expectedKey);
 
-  if (!providedKey || providedKey !== expectedKey) {
+  if (
+    providedKey.length !== expectedKeyBuffer.length ||
+    !timingSafeEqual(providedKey, expectedKeyBuffer)
+  ) {
     return res.status(401).json({
       error: "Unauthorized."
     });
@@ -62,6 +68,10 @@ router.post("/sync", (req, res) => {
     SET plan = ?, updated_at = ?
     WHERE discord_id = ?
   `).run(plan, now, discordId);
+  recordAudit("premium.plan_synced", null, user.id, {
+    previousPlan: user.plan,
+    plan,
+  });
 
   return res.json({
     success: true,
