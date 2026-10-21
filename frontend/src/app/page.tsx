@@ -93,6 +93,50 @@ export default function Home() {
         </div>
       </section>
 
+
+      <section id="about-me" className="site-section festive-enter">
+        <div className="festive-glass" style={{ padding: "clamp(22px, 4vw, 38px)" }}>
+          <div style={{ textAlign: "center", marginBottom: "24px" }}>
+            <div style={{
+              width: "86px", height: "86px", borderRadius: "50%",
+              margin: "0 auto 16px", display: "grid", placeItems: "center",
+              background: "linear-gradient(135deg,#a970ff,#ff963d)",
+              fontSize: "32px", fontWeight: 800, color: "#fff"
+            }}>A</div>
+            <h2 className="festive-heading" style={{ fontSize: "clamp(25px,4vw,34px)", margin: 0 }}>
+              Jashandeep Singh
+            </h2>
+            <p style={{ opacity: 0.8, marginTop: "8px" }}>Founder &amp; Developer · Astrix Hosting</p>
+          </div>
+
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))",
+            gap: "10px", marginBottom: "26px"
+          }}>
+            {[
+              ["ROLE", "Founder"],
+              ["FOCUS", "Bot Hosting"],
+              ["BUILDING", "Developer Tools"],
+              ["COMMUNITY", "Astrix Support"]
+            ].map(([label, value]) => (
+              <div key={label} className="festive-glass" style={{ padding: "14px", textAlign: "center" }}>
+                <small style={{ opacity: 0.7, display: "block", marginBottom: "6px" }}>{label}</small>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+
+          <h2 style={{ fontSize: "24px", marginBottom: "12px" }}>About Me</h2>
+          <p style={{ lineHeight: 1.85, opacity: 0.88, margin: 0 }}>
+            I'm Jashandeep Singh, the founder of Astrix Hosting. I'm building a platform
+            to make bot hosting and server management simpler for developers and Discord
+            communities. My vision is to bring hosting tools, server controls and a clean
+            dashboard together in one place, while growing Astrix through new ideas and
+            community feedback.
+          </p>
+        </div>
+      </section>
+
       <section id="status" className="site-section">
         <div className="section-heading">
           <span>ASTRIX STATUS</span>
@@ -136,6 +180,38 @@ export default function Home() {
         </div>
       </section>
 
+
+      <section id="tech-stack" className="site-section festive-enter">
+        <div style={{ marginBottom: "18px" }}>
+          <span className="section-eyebrow">BUILT FOR BUILDERS</span>
+          <h2 className="festive-heading" style={{ fontSize: "clamp(26px,4vw,36px)", margin: "8px 0" }}>
+            Technology Stack
+          </h2>
+          <p style={{ opacity: 0.8, lineHeight: 1.7 }}>
+            Flexible tools for bots, applications and communities.
+          </p>
+        </div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
+          gap: "12px"
+        }}>
+          {[
+            ["Node.js", "Bots & APIs"],
+            ["Python", "Automation & apps"],
+            ["Bun", "JavaScript runtime"],
+            ["Lavalink", "Music infrastructure"]
+          ].map(([name, detail]) => (
+            <div key={name} className="festive-glass" style={{ padding: "20px 14px" }}>
+              <h3 style={{ margin: "0 0 8px", fontSize: "18px" }}>{name}</h3>
+              <p style={{ margin: 0, opacity: 0.75, fontSize: "13px", lineHeight: 1.6 }}>
+                {detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section id="servers" className="site-section">
         <div className="section-heading">
           <span>SERVER TYPES</span>
@@ -159,6 +235,27 @@ export default function Home() {
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+
+      <section id="festive-offer" className="site-section festive-enter">
+        <div className="festive-offer">
+          <span style={{ color: "var(--fest-gold)", fontWeight: 800, letterSpacing: "2px", fontSize: "12px" }}>
+            ASTRIX FESTIVE SEASON
+          </span>
+          <h2 className="festive-heading" style={{ fontSize: "clamp(26px,4vw,38px)", margin: "14px 0" }}>
+            Build Something Brilliant This Diwali.
+          </h2>
+          <p style={{ maxWidth: "620px", lineHeight: 1.8, opacity: 0.85 }}>
+            Your next project starts here. Explore Astrix hosting plans and watch for
+            owner-approved festive rewards and announcements.
+          </p>
+          <a href="#plans" className="festive-button"
+             style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      padding: "13px 22px", marginTop: "10px", textDecoration: "none" }}>
+            Explore Hosting Plans →
+          </a>
         </div>
       </section>
 

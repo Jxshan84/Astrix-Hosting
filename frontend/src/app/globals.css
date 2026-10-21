@@ -2008,3 +2008,85 @@ textarea:focus {
     display: none !important;
   }
 }
+
+/* ASTRIX FESTIVE LAUNCH UPGRADE */
+:root {
+  --fest-gold: #ffd782;
+  --fest-orange: #ff963d;
+  --fest-purple: #a970ff;
+  --fest-bg: #090713;
+  --fest-glass: rgba(30, 21, 47, .76);
+  --fest-border: rgba(255, 215, 130, .23);
+}
+html { scroll-behavior: smooth; }
+body {
+  background-image:
+    radial-gradient(ellipse at 12% 4%, rgba(169,112,255,.17), transparent 38%),
+    radial-gradient(ellipse at 88% 18%, rgba(255,150,61,.12), transparent 34%);
+}
+.festive-glass {
+  background: linear-gradient(140deg, rgba(49,32,69,.86), var(--fest-glass));
+  border: 1px solid var(--fest-border);
+  border-radius: 22px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.festive-glass:hover {
+  border-color: rgba(255,215,130,.5);
+  box-shadow: 0 18px 55px rgba(0,0,0,.35), 0 0 25px rgba(255,150,61,.09);
+}
+.festive-heading {
+  background: linear-gradient(100deg,#fff5d7,#ffd782 48%,#c9a4ff);
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+.festive-offer {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--fest-border);
+  border-radius: 24px;
+  padding: clamp(20px,4vw,36px);
+  background: radial-gradient(ellipse at top right,rgba(255,150,61,.2),transparent 48%),
+              linear-gradient(135deg,#21132f,#100d20 70%);
+}
+.festive-offer::after {
+  content: "✦  ✧  ✦";
+  position: absolute;
+  right: 18px;
+  top: 12px;
+  color: var(--fest-gold);
+  opacity: .55;
+  animation: astrix-twinkle 3s ease-in-out infinite;
+  pointer-events: none;
+}
+.festive-button {
+  border: 1px solid rgba(255,215,130,.4);
+  border-radius: 14px;
+  background: linear-gradient(120deg,#ffbd65,#d88738);
+  color: #1b1020;
+  font-weight: 800;
+  box-shadow: 0 8px 26px rgba(255,150,61,.16);
+}
+.festive-button:hover { filter: brightness(1.08); transform: translateY(-2px); }
+@keyframes astrix-twinkle {
+  0%,100% { opacity:.35; transform:translateY(0) rotate(0); }
+  50% { opacity:.9; transform:translateY(-3px) rotate(8deg); }
+}
+@keyframes astrix-enter {
+  from { opacity:0; transform:translateY(12px); }
+  to { opacity:1; transform:translateY(0); }
+}
+.festive-enter { animation: astrix-enter .55s ease both; }
+@media (max-width:640px) {
+  .festive-glass,.festive-offer { border-radius:18px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after {
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    scroll-behavior:auto !important;
+    transition-duration:.01ms !important;
+  }
+}
