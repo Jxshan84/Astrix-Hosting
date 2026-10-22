@@ -2018,12 +2018,6 @@ textarea:focus {
   --fest-glass: rgba(30, 21, 47, .76);
   --fest-border: rgba(255, 215, 130, .23);
 }
-html { scroll-behavior: smooth; }
-body {
-  background-image:
-    radial-gradient(ellipse at 12% 4%, rgba(169,112,255,.17), transparent 38%),
-    radial-gradient(ellipse at 88% 18%, rgba(255,150,61,.12), transparent 34%);
-}
 .festive-glass {
   background: linear-gradient(140deg, rgba(49,32,69,.86), var(--fest-glass));
   border: 1px solid var(--fest-border);
