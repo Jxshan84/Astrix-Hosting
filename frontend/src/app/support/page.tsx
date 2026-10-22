@@ -62,7 +62,7 @@ export default function SupportPage() {
         <h1>Astrix Hosting Support</h1>
         <p>
           Get help from the Astrix Hosting support team.
-          Premium members receive priority support and can open tickets 24/7.
+          Free users can create standard support tickets on this website. Premium members receive priority support.
         </p>
 
         <div className="support-owner">
@@ -80,7 +80,7 @@ export default function SupportPage() {
         <div>
           <span className="support-badge">NEW TICKET</span>
           <h2>Open a Support Ticket</h2>
-          <p>Premium tickets automatically receive priority handling.</p>
+          <p>Free users can create normal-priority tickets. Premium priority is based on your account plan.</p>
         </div>
 
         {authLoading ? (
